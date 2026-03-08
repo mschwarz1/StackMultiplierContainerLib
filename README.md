@@ -115,14 +115,61 @@ boolean canAdd = container.canAddItemStack(itemStack, fullStacks, filter);
 ItemStack stack = container.getItemStack(slot);
 ```
 
+## Interactions
+
+The plugin registers two interaction types for use in item JSON definitions.
+
+### SetBackpackStackMultiplier (Relative)
+
+Applies a relative upgrade to the player's backpack. Converts vanilla `SimpleItemContainer` to `StackMultiplierContainer` if needed.
+
+```json
+{
+    "Type": "SetBackpackStackMultiplier",
+    "CapacityIncrease": 9,
+    "StackMultiplierFactor": 2
+}
+```
+
+- `CapacityIncrease` — number of slots to add (additive)
+- `StackMultiplierFactor` — multiplier applied to the current stack multiplier (multiplicative)
+
+### SetBackpackAbsolute
+
+Sets the backpack to exact values. Useful for admin tools or scripted scenarios.
+
+```json
+{
+    "Type": "SetBackpackAbsolute",
+    "Capacity": 36,
+    "StackMultiplier": 4
+}
+```
+
+- `Capacity` — exact number of slots
+- `StackMultiplier` — exact stack multiplier value
+
+### Commands
+
+- `/smcbackpack info` — shows backpack type, capacity, and multiplier
+- `/smcbackpack set <capacity> <multiplier>` — set absolute values
+- `/smcbackpack upgrade <capacityIncrease> <multiplierFactor>` — apply relative upgrade
+- `/smcbackpack reset` — reset to vanilla defaults
+- `/smcbackpack clearusages` — clear unique item usage records (for testing)
+
 ## Project Structure
 
 ```
 ├── src/main/java/
 │   └── com/msgames/plugin/stackmultipliercontainer/
-│       ├── StackMultiplierContainerPlugin.java   # Plugin entry point, codec registration
-│       └── container/
-│           └── StackMultiplierContainer.java      # Core container implementation
+│       ├── StackMultiplierContainerPlugin.java   # Plugin entry point, codec & interaction registration
+│       ├── container/
+│       │   └── StackMultiplierContainer.java      # Core container implementation
+│       ├── interaction/
+│       │   ├── SetBackpackStackMultiplierInteraction.java  # Relative upgrade interaction
+│       │   └── SetBackpackAbsoluteInteraction.java         # Absolute value interaction
+│       └── command/
+│           └── BackpackCommand.java               # Test/admin commands
 ├── src/main/resources/
 │   └── manifest.json                              # Hytale plugin manifest (auto-updated by build)
 ├── build.gradle.kts
