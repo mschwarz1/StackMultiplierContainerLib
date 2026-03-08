@@ -98,6 +98,15 @@ public class StackMultiplierContainer extends ItemContainer {
     }
 
     /**
+     * Returns the current stack multiplier.
+     *
+     * @return the multiplier applied to each item's base max-stack
+     */
+    public int getStackMultiplier() {
+        return this.stackMultiplier;
+    }
+
+    /**
      * Copy constructor. Copies slot contents, capacity, stack multiplier, slot
      * filters, and global filter from {@code other}. The new container acquires
      * its own independent lock and maps.
