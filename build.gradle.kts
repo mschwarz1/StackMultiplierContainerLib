@@ -68,17 +68,21 @@ tasks.named("processResources") {
     dependsOn("updatePluginManifest")
 }
 
+tasks.named("build") { mustRunAfter("clean") }
+
 tasks.test {
     useJUnitPlatform()
 }
 
 tasks.register("release") {
     group = "build"
-    dependsOn("build")
-    description = "Builds the plugin and creates a GitHub release. Usage: ./gradlew release"
+    dependsOn("clean", "build")
+    description = "Builds the plugin and creates a GitHub release. Usage: ./gradlew release [-Ppatchline=beta]"
 
     val tag = "v${project.version}"
     val projectDir = project.projectDir
+    val releasePatchline = patchline
+    val releaseServerVersion = serverVersion
 
     doLast {
         for (cmd in listOf("git", "gh")) {
@@ -100,13 +104,28 @@ tasks.register("release") {
             if (exitCode != 0) error("Command failed (exit $exitCode): ${args.joinToString(" ")}")
         }
 
+        // Get the current commit hash
+        val commitProcess = ProcessBuilder("git", "rev-parse", "HEAD")
+            .directory(projectDir)
+            .start()
+        val commitHash = commitProcess.inputStream.bufferedReader().readText().trim()
+        commitProcess.waitFor()
+
+        val releaseNotes = """
+            ## Build Info
+            - **Patchline:** $releasePatchline
+            - **Server Version:** $releaseServerVersion
+            - **Commit:** $commitHash
+        """.trimIndent()
+
         run("git", "tag", tag)
         run("git", "push", "origin", tag)
 
-        // Wait briefly for GitHub to process the tag and the Actions workflow to create the release
-        Thread.sleep(5000)
-
-        run("gh", "release", "upload", tag, jarFile.absolutePath, "--clobber")
+        run("gh", "release", "create", tag,
+            "\"${jarFile.absolutePath}\"",
+            "--title", tag,
+            "--notes", releaseNotes,
+            "--generate-notes")
 
         logger.lifecycle("Release $tag created with ${jarFile.name}")
     }

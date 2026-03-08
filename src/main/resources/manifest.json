@@ -1,7 +1,7 @@
 {
     "Group": "com.msgames",
     "Name": "StackMultiplierContainerPlugin",
-    "Version": "2026.3.8-65620",
+    "Version": "2026.3.8-67863",
     "Main": "com.msgames.plugin.stackmultipliercontainer.StackMultiplierContainerPlugin",
     "ServerVersion": "2026.02.19-1a311a592"
 }
