@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: python3 -c "import json; json.load(open('src/main/resources/manifest.json'))"
+
+      - name: Check required files exist
+        run: |
+          for f in build.gradle.kts settings.gradle.kts LICENSE README.md src/main/resources/manifest.json; do
+            if [ ! -f "$f" ]; then
+              echo "Missing required file: $f"
+              exit 1
+            fi
+          done
+          echo "All required files present."

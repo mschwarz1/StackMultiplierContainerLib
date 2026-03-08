@@ -8,12 +8,21 @@ plugins {
 
 val patchline: String by project
 val hytaleHome: String = "${System.getProperty("user.home")}/AppData/Roaming/Hytale"
-val hytaleServerJar: String = "$hytaleHome/install/$patchline/package/game/latest/Server/HytaleServer.jar"
+val hytaleServerJar: String = (project.findProperty("hytaleServerJar") as String?)
+    ?: "$hytaleHome/install/$patchline/package/game/latest/Server/HytaleServer.jar"
 
-// Extract server version from HytaleServer.jar's MANIFEST.MF at configuration time
-val serverVersion: String = JarFile(file(hytaleServerJar)).use { jar ->
-    jar.manifest.mainAttributes.getValue("Implementation-Version")
-        ?: error("Could not read Implementation-Version from HytaleServer.jar manifest")
+// Extract server version from HytaleServer.jar's MANIFEST.MF lazily (allows CI builds without local install)
+val serverVersion: String by lazy {
+    val jarFile = file(hytaleServerJar)
+    if (jarFile.exists()) {
+        JarFile(jarFile).use { jar ->
+            jar.manifest.mainAttributes.getValue("Implementation-Version")
+                ?: error("Could not read Implementation-Version from HytaleServer.jar manifest")
+        }
+    } else {
+        logger.warn("HytaleServer.jar not found at $hytaleServerJar — using 'unknown' for server version")
+        "unknown"
+    }
 }
 
 group = "com.msgames"
@@ -59,4 +68,25 @@ tasks.named("processResources") {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.register("release") {
+    dependsOn("build")
+    description = "Builds the plugin and creates a GitHub release. Usage: ./gradlew release"
+
+    doLast {
+        val tag = "v${project.version}"
+
+        val jarFile = fileTree("build/libs") { include("*.jar") }.singleFile
+
+        exec { commandLine("git", "tag", tag) }
+        exec { commandLine("git", "push", "origin", tag) }
+
+        // Wait briefly for GitHub to process the tag and the Actions workflow to create the release
+        Thread.sleep(5000)
+
+        exec { commandLine("gh", "release", "upload", tag, jarFile.absolutePath, "--clobber") }
+
+        logger.lifecycle("Release $tag created with ${jarFile.name}")
+    }
 }
