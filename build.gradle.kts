@@ -49,16 +49,18 @@ dependencies {
 // Automatically update manifest.json with current version and server version before build
 tasks.register("updatePluginManifest") {
     val manifestFile = file("src/main/resources/manifest.json")
+    val pluginVersion = project.version.toString()
 
     doLast {
         val sv = serverVersion
+        @Suppress("UNCHECKED_CAST")
         val manifest = groovy.json.JsonSlurper().parseText(manifestFile.readText()) as MutableMap<String, Any>
-        manifest["Version"] = project.version.toString()
+        manifest["Version"] = pluginVersion
         manifest["ServerVersion"] = sv
 
         val json = groovy.json.JsonBuilder(manifest).toPrettyString()
         manifestFile.writeText(json + "\n")
-        logger.lifecycle("Updated manifest.json: Version=${project.version}, ServerVersion=$sv")
+        logger.lifecycle("Updated manifest.json: Version=$pluginVersion, ServerVersion=$sv")
     }
 }
 
@@ -71,21 +73,40 @@ tasks.test {
 }
 
 tasks.register("release") {
+    group = "build"
     dependsOn("build")
     description = "Builds the plugin and creates a GitHub release. Usage: ./gradlew release"
 
+    val tag = "v${project.version}"
+    val projectDir = project.projectDir
+
     doLast {
-        val tag = "v${project.version}"
+        for (cmd in listOf("git", "gh")) {
+            try {
+                ProcessBuilder(cmd, "--version").start().waitFor()
+            } catch (_: Exception) {
+                error("'$cmd' is not available on PATH. Install it and run this task from a terminal.")
+            }
+        }
 
         val jarFile = fileTree("build/libs") { include("*.jar") }.singleFile
 
-        exec { commandLine("git", "tag", tag) }
-        exec { commandLine("git", "push", "origin", tag) }
+        fun run(vararg args: String) {
+            val process = ProcessBuilder(*args)
+                .directory(projectDir)
+                .inheritIO()
+                .start()
+            val exitCode = process.waitFor()
+            if (exitCode != 0) error("Command failed (exit $exitCode): ${args.joinToString(" ")}")
+        }
+
+        run("git", "tag", tag)
+        run("git", "push", "origin", tag)
 
         // Wait briefly for GitHub to process the tag and the Actions workflow to create the release
         Thread.sleep(5000)
 
-        exec { commandLine("gh", "release", "upload", tag, jarFile.absolutePath, "--clobber") }
+        run("gh", "release", "upload", tag, jarFile.absolutePath, "--clobber")
 
         logger.lifecycle("Release $tag created with ${jarFile.name}")
     }
